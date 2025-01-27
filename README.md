@@ -1,2 +1,3 @@
-A simple, differentiable implementation of Bsplines for use in pytorch models. Written by Hugo Melchers
- at Eindhoven University of Technology.
+Implementation of differentiable B-spline functions in PyTorch, with some extra features.
+
+Author: Hugo Melchers, Eindhoven University of Technology
