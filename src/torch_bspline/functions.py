@@ -9,7 +9,7 @@ from torch_bspline.tensor_grid import TensorGrid
 from torch_bspline.tensor_basis import TensorBasis
 
 
-class BsplineFunctions(nn.Module):
+class BSplineFunctions(nn.Module):
 
     def __init__(self, basis, weights, offset=None):
         super().__init__()

@@ -5,10 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Local
-from torch_bspline.tensor_grid import TensorGrid
-from torch_bspline.bspline import BSpline
-from torch_bspline.tensor_basis import TensorBasis
-from torch_bspline.functions import BsplineFunctions
+from torch_bspline import TensorGrid
+from torch_bspline import BSpline
+from torch_bspline import TensorBasis
+from torch_bspline import BSplineFunctions
 
 params = {'mathtext.default': 'regular' }          
 plt.rcParams.update(params)
@@ -56,7 +56,7 @@ def visualize_basis(*,
             weights = torch.zeros((num_x_bases*num_y_bases,1), dtype=dtype)
             weights[i*num_y_bases + j] = 1.
 
-            f = BsplineFunctions(xy_basis, weights)
+            f = BSplineFunctions(xy_basis, weights)
             Z = f(xy_grid).reshape(X.shape)
             ax = fig.add_subplot(111)
 
