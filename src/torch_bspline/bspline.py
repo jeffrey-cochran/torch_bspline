@@ -140,7 +140,7 @@ class BSpline(nn.Module):
         knots = torch.cat(
             (
                 torch.full((self.degree + 1,), a, device=device, dtype=self.dtype),
-                knots_internal,
+                knots_internal.to(dtype=self.dtype),
                 torch.full((self.degree,), b, device=device, dtype=self.dtype),
             )
         )
@@ -191,7 +191,13 @@ class BSpline(nn.Module):
         knots = self.get_knot_vector().unsqueeze(0)
         nf = knots.numel() - degree - 1
         W = torch.diag(torch.ones(nf, dtype=x.dtype, device=x.device))
-        return BSpline._bspline_get_derivatives(knots, degree, k, x, W)
+        return BSpline._bspline_get_derivatives(
+            knots=knots,
+            degree=degree,
+            k=k,
+            x=x,
+            W=W
+        )
 
 
     @staticmethod
@@ -207,7 +213,20 @@ class BSpline(nn.Module):
         #   however, this led to inconsistent result.dtype
         #   depending on whether the loop (degree>0?) was executed 
         #   because `knots` may have a different dtype.
-        _dtype = (knots[0,0] + x[0]).dtype
+        # dtype = (knots[0,0] + x[0]).dtype
+
+        _dtype = x.dtype
+        
+        if _dtype != knots.dtype:
+            raise Warning(
+                "The input tensor `x` and the knot vector `knots` have "
+                "different dtypes, %s and %s, respectively. Casting knots to %s",
+                str(_dtype),
+                str(knots.dtype),
+                str(_dtype)
+            )
+
+        _knots = knots.to(dtype=_dtype)
 
         Nx = x.numel()
         x = x.unsqueeze(-1)
@@ -216,21 +235,21 @@ class BSpline(nn.Module):
         result = torch.cat(
             (
                 padding,
-                x < knots[:, degree + 1],
-                (knots[:, degree + 1 : -degree - 2] <= x)
-                * (x < knots[:, degree + 2 : -degree - 1]),
-                knots[:, -degree - 2] <= x,
+                x < _knots[:, degree + 1],
+                (_knots[:, degree + 1 : -degree - 2] <= x)
+                * (x < _knots[:, degree + 2 : -degree - 1]),
+                _knots[:, -degree - 2] <= x,
                 padding,
             ),
             dim=1,
-        ).to(_dtype)
+        ).to(dtype=_dtype)
 
         eps = torch.tensor(1e-16, dtype=_dtype, device=x.device)
 
         for deg in range(1, degree + 1):
-            nf = knots.numel() - deg - 1
-            a = knots[:, 0 : nf + 1]
-            b = knots[:, deg : (1 + deg + nf)]
+            nf = _knots.numel() - deg - 1
+            a = _knots[:, 0 : nf + 1]
+            b = _knots[:, deg : (1 + deg + nf)]
             l = torch.maximum(b - a, eps)
             v1 = result[:, 0:nf] * (x - a[:, :-1]) / l[:, :-1]
             v2 = result[:, 1 : (nf + 1)] * (b[:, 1:] - x) / l[:, 1:]
@@ -240,25 +259,59 @@ class BSpline(nn.Module):
 
 
     @staticmethod
-    def _bspline_get_derivatives(knots, degree, k, x, W):
-        nf = knots.numel() - degree - 1
+    def _bspline_get_derivatives(
+        *,
+        knots,
+        degree,
+        k,
+        x,
+        W
+    ):
+        _dtype = x.dtype
+
+        if _dtype != knots.dtype:
+            raise Warning(
+                "The input tensor `x` and the knot vector `knots` have "
+                "different dtypes, %s and %s, respectively. Casting knots to %s",
+                str(_dtype),
+                str(knots.dtype),
+                str(_dtype)
+            )
+
+        if _dtype != W.dtype:
+            raise Warning(
+                "The input tensor `x` and the input tensor `W` have "
+                "different dtypes, %s and %s, respectively. Casting W to %s",
+                str(_dtype),
+                str(W.dtype),
+                str(_dtype)
+            )
+
+        _W = W.to(dtype=_dtype)
+        _knots = knots.to(dtype=_dtype)
+
+        nf = _knots.numel() - degree - 1
         if k == 0:
             return BSpline._bspline_get_values(
-                knots=knots,
+                knots=_knots,
                 degree=degree,
                 x=x
-            ) @ W
+            ) @ _W
         elif k > degree:
-            return torch.zeros((x.numel(), nf), device=x.device)
+            return torch.zeros((x.numel(), nf), dtype=_dtype, device=x.device)
         else:
             # The derivatives of a degree-p B-spline basis can be expressed as linear combinations of degree (p-1) B-spline basis functions.
             # To evaluate the lower-order functions, I also remove the first and last knot, since the lower degree also expects lower multiplicities of the start and end knot.
-            eps = torch.tensor(1e-10, dtype=x.dtype, device=x.device)
-            a1 = knots[:, 1:nf]
-            b1 = knots[:, degree + 1 : -1]
-            W2 = degree * W.diff(dim=0) / torch.maximum(b1 - a1, eps).T
+            eps = torch.tensor(1e-10, dtype=_dtype, device=x.device)
+            a1 = _knots[:, 1:nf]
+            b1 = _knots[:, degree + 1 : -1]
+            W2 = degree * _W.diff(dim=0) / torch.maximum(b1 - a1, eps).T
             return BSpline._bspline_get_derivatives(
-                knots[:, 1:-1], degree - 1, k - 1, x, W2
+                knots=_knots[:, 1:-1],
+                degree=degree - 1,
+                k=k - 1,
+                x=x,
+                W=W2
             )
 
 

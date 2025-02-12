@@ -40,8 +40,8 @@ def visualize_basis(*,
     xy_basis = TensorBasis(x_basis, y_basis)
 
     xy_grid = TensorGrid(
-        xs = torch.linspace(0,1,50),
-        ys = torch.linspace(0,1,100),
+        xs = torch.linspace(0,1,50, dtype=dtype),
+        ys = torch.linspace(0,1,100, dtype=dtype),
         x_varies_first=True
     )
     X, Y  = np.meshgrid(xy_grid.xs.numpy(), xy_grid.ys.numpy())
