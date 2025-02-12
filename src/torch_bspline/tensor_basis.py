@@ -136,6 +136,40 @@ class TensorBasis(nn.Module):
             )
 
 
+    # Laplacian of RBF interpolated GRF
+    def laplacian(self, *, points:torch.Tensor):
+        
+        out_laplacian = None
+
+        f_x = self.f_x
+        f_y = self.f_y or f_x
+        if isinstance(points, TensorGrid):
+            f = f_x(points.xs)
+            ddf = f_x.derivative(points.xs, 2)
+            if self.f_y is None and points.ys is None:
+                g, ddg = f, ddf
+            else:
+                ys = points.ys if points.ys is not None else points.xs
+                g = f_y(ys)
+                ddg = f_y.derivative(ys, 2)
+            out_laplacian = (
+                    self.tensor_product(ddf, g, points.x_varies_first)
+                +   self.tensor_product(f, ddg, points.x_varies_first)
+            ) 
+        else:
+            X = points[:, 0]
+            Y = points[:, 1]
+            f = f_x(X)
+            g = f_y(Y)
+            ddf = f_x.derivative(X, 2)
+            ddg = f_y.derivative(Y, 2)
+            out_laplacian = (
+                    self.outer_product(ddf, g)
+                +   self.outer_product(f, ddg)
+            )
+
+        return out_laplacian
+
     @staticmethod
     def outer_product(a:torch.Tensor, b:torch.Tensor) -> torch.Tensor:
         # a should be n × f
